@@ -1,3 +1,3 @@
-module github.com/Process_Go
+module github.com/ueverson/ProcessingWorksheetGO
 
 go 1.16
