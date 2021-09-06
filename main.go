@@ -3,23 +3,20 @@ package main
 import (
 	"bufio"
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 
-	middleware "github.com/ueverson/ProcessingWorksheetGO/Middleware"
+	"github.com/ueverson/ProcessingWorksheetGO/configs"
+	"github.com/ueverson/ProcessingWorksheetGO/database"
+	"github.com/ueverson/ProcessingWorksheetGO/middleware"
 	"github.com/ueverson/ProcessingWorksheetGO/models"
 )
 
-type Configuration struct {
-	UrlPlanilha string `json:"UrlPlanilha"`
-}
-
 func main() {
+	database.StartDB()
 
-	config := ConfigRead()
+	config := configs.Config()
 	arq, err := os.Open(config.UrlPlanilha)
 	middleware.Handler(err)
 
@@ -57,6 +54,7 @@ func main() {
 	}
 
 	totalModel := 1
+	totalFairPrice := 1
 	for i, v := range model {
 		calcFairPrice(&v)
 		model[i] = v
@@ -65,17 +63,21 @@ func main() {
 
 	for _, s := range model {
 		if s.WithinFairPrice {
-			fmt.Println(s.Ticker, "com Price R$", s.Price, "onde deveria ser R$", fmt.Sprintf("%.2f", s.FairPrice), "DPA", s.DPA)
+			result := Create(s)
+			fmt.Println(s.Ticker, "com Price R$", s.Price, "onde deveria ser R$", s.FairPrice, " Gravou ?", result)
+			totalFairPrice++
 		}
 	}
 
 	fmt.Println("\nTotal: ", totalModel)
+	fmt.Println("Total com valor justo: ", totalFairPrice)
 }
 
 //Calcula o Preço Justo
 func calcFairPrice(model *models.Asset) {
 	if model.DPA != 0 {
-		p := (model.DPA * 100) / 6
+		s := fmt.Sprintf("%.2f", (model.DPA*100)/6)
+		p := middleware.ConvertFloat(s)
 		b := p > model.Price
 
 		(*model).FairPrice = p
@@ -86,18 +88,14 @@ func calcFairPrice(model *models.Asset) {
 	}
 }
 
-//Faz a leitura da configuração do config
-func ConfigRead() Configuration {
-	file, err := os.Open("configs/config.json")
-	middleware.Handler(err)
-	defer file.Close()
+func Create(m models.Asset) bool {
+	db := database.GetDatabase()
 
-	configBytes, err := ioutil.ReadAll(file)
-	middleware.Handler(err)
+	err := db.Create(&m).Error
+	if err != nil {
+		middleware.Handler(err)
+		return false
+	}
 
-	var config Configuration
-	err = json.Unmarshal(configBytes, &config)
-	middleware.Handler(err)
-
-	return config
+	return true
 }
