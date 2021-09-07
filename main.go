@@ -53,6 +53,8 @@ func main() {
 		count++
 	}
 
+	ResetDatabase()
+
 	totalModel := 1
 	totalFairPrice := 1
 	for i, v := range model {
@@ -97,5 +99,17 @@ func Create(m models.Asset) bool {
 		return false
 	}
 
+	return true
+}
+
+func ResetDatabase() bool {
+	db := database.GetDatabase()
+
+	err := db.Exec("DELETE FROM assets").Error
+
+	if err != nil {
+		middleware.Handler(err)
+		return false
+	}
 	return true
 }
